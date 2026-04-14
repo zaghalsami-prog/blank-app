@@ -58,6 +58,16 @@ with left_col:
     asset_name = st.selectbox("Asset", list(ASSETS[market].keys()))
     ticker = ASSETS[market][asset_name]
 
+st.markdown("### Or search any stock by ticker")
+
+custom_ticker = st.text_input(
+    "Enter a Yahoo Finance ticker",
+    placeholder="Examples: ASML.AS, NFLX, OR.PA, SAP.DE"
+)
+
+if custom_ticker:
+    ticker = custom_ticker.upper()
+``
     data = yf.Ticker(ticker).history(period="10y")
 
     if not data.empty:
