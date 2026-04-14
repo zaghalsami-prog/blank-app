@@ -10,47 +10,47 @@ from zoneinfo import ZoneInfo
 st.set_page_config(page_title="Crypto & Macro Intelligence", layout="wide")
 
 st.title("Crypto & Macro Intelligence")
-st.caption("Cryptos & actions – multi‑marchés")
+st.caption("TOP 100 cryptos & actions – multi‑marchés")
 
 # ==================================================
-# CRYPTOS – COINGECKO
+# CRYPTOS – TOP 100 COINGECKO
 # ==================================================
-@st.cache_data(ttl=3600)
-def get_all_cryptos():
-    url = "https://api.coingecko.com/api/v3/coins/list"
-    return requests.get(url, timeout=10).json()
-
-@st.cache_data(ttl=60)
-def get_crypto_price(coin_id):
-    url = "https://api.coingecko.com/api/v3/simple/price"
+@st.cache_data(ttl=300)
+def get_top_100_cryptos():
+    url = "https://api.coingecko.com/api/v3/coins/markets"
     params = {
-        "ids": coin_id,
-        "vs_currencies": "usd",
-        "include_24hr_change": "true"
+        "vs_currency": "usd",
+        "order": "market_cap_desc",
+        "per_page": 100,
+        "page": 1,
+        "price_change_percentage": "24h"
     }
-    return requests.get(url, params=params, timeout=10).json()
+    r = requests.get(url, params=params, timeout=10)
+    r.raise_for_status()
+    return r.json()
 
-st.subheader("🪙 Cryptomonnaies")
+st.subheader("🪙 Cryptomonnaies (TOP 100)")
 
-cryptos = get_all_cryptos()
-crypto_dict = {c["name"]: c["id"] for c in cryptos}
+cryptos = get_top_100_cryptos()
 
-crypto_name = st.selectbox(
-    "Choisis une crypto",
-    options=sorted(crypto_dict.keys()),
-    index=sorted(crypto_dict.keys()).index("Bitcoin")
+crypto_dict = {
+    f"{c['market_cap_rank']}. {c['name']} ({c['symbol'].upper()})": c
+    for c in cryptos
+}
+
+selected_crypto_label = st.selectbox(
+    "Choisis une crypto (TOP 100)",
+    options=list(crypto_dict.keys()),
+    index=0
 )
 
-crypto_id = crypto_dict[crypto_name]
-crypto_data = get_crypto_price(crypto_id)
+selected_crypto = crypto_dict[selected_crypto_label]
 
-if crypto_id in crypto_data:
-    data = crypto_data[crypto_id]
-    st.metric(
-        label=crypto_name,
-        value=f"${data['usd']:,}",
-        delta=f"{data['usd_24h_change']:.2f}%"
-    )
+st.metric(
+    label=selected_crypto["name"],
+    value=f"${selected_crypto['current_price']:,}",
+    delta=f"{selected_crypto['price_change_percentage_24h']:.2f}%"
+)
 
 # ==================================================
 # ACTIONS – MARCHÉS
@@ -61,15 +61,12 @@ CAC40 = {
     "Accor": "AC.PA", "Air Liquide": "AI.PA", "Airbus": "AIR.PA",
     "Alstom": "ALO.PA", "ArcelorMittal": "MT.AS", "AXA": "CS.PA",
     "BNP Paribas": "BNP.PA", "Bouygues": "EN.PA", "Capgemini": "CAP.PA",
-    "Carrefour": "CA.PA", "Crédit Agricole": "ACA.PA",
-    "Danone": "BN.PA", "Dassault Systèmes": "DSY.PA",
-    "Edenred": "EDEN.PA", "Engie": "ENGI.PA",
-    "EssilorLuxottica": "EL.PA", "Hermès": "RMS.PA",
-    "Kering": "KER.PA", "Legrand": "LR.PA",
-    "L'Oréal": "OR.PA", "LVMH": "MC.PA",
-    "Michelin": "ML.PA", "Orange": "ORA.PA",
-    "Pernod Ricard": "RI.PA", "Publicis": "PUB.PA",
-    "Renault": "RNO.PA", "Safran": "SAF.PA",
+    "Carrefour": "CA.PA", "Crédit Agricole": "ACA.PA", "Danone": "BN.PA",
+    "Dassault Systèmes": "DSY.PA", "Edenred": "EDEN.PA", "Engie": "ENGI.PA",
+    "EssilorLuxottica": "EL.PA", "Hermès": "RMS.PA", "Kering": "KER.PA",
+    "Legrand": "LR.PA", "L'Oréal": "OR.PA", "LVMH": "MC.PA",
+    "Michelin": "ML.PA", "Orange": "ORA.PA", "Pernod Ricard": "RI.PA",
+    "Publicis": "PUB.PA", "Renault": "RNO.PA", "Safran": "SAF.PA",
     "Saint-Gobain": "SGO.PA", "Sanofi": "SAN.PA",
     "Schneider Electric": "SU.PA", "Société Générale": "GLE.PA",
     "Stellantis": "STLAM.MI", "STMicroelectronics": "STM.PA",
@@ -79,9 +76,8 @@ CAC40 = {
 }
 
 US_STOCKS = {
-    "Apple": "AAPL", "Microsoft": "MSFT",
-    "Nvidia": "NVDA", "Tesla": "TSLA",
-    "Amazon": "AMZN", "Meta": "META"
+    "Apple": "AAPL", "Microsoft": "MSFT", "Nvidia": "NVDA",
+    "Tesla": "TSLA", "Amazon": "AMZN", "Meta": "META"
 }
 
 INDICES = {
@@ -113,7 +109,7 @@ try:
             delta=f"{delta:.2f}%"
         )
 except Exception:
-    st.error("Erreur de chargement des données.")
+    st.error("Erreur de chargement des données actions.")
 
 # ==================================================
 # FOOTER – HEURE FRANCE
