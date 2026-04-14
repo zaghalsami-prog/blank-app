@@ -222,4 +222,3 @@ with tabs[4]:
 now_paris = datetime.now(ZoneInfo("Europe/Paris"))
 st.divider()
 st.caption("Last update: " + now_paris.strftime("%Y-%m-%d %H:%M:%S"))
-```
