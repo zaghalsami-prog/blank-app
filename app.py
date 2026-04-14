@@ -5,31 +5,31 @@ import pandas as pd
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-# ==================================================
+# --------------------------------------------------
 # CONFIG
-# ==================================================
+# --------------------------------------------------
 st.set_page_config(page_title="Market Intelligence Dashboard", layout="wide")
 
 st.title("Market Intelligence Dashboard")
-st.write("Crypto & actions – analyse historique et tendances")
+st.write("Crypto and stocks - historical analysis")
 
-# ==================================================
+# --------------------------------------------------
 # LAYOUT
-# ==================================================
+# --------------------------------------------------
 left_col, right_col = st.columns([3, 1])
 
-# ==================================================
-# UTIL
-# ==================================================
+# --------------------------------------------------
+# FORMATTERS
+# --------------------------------------------------
 def format_price(x):
-    return f"{x:,.2f}".replace(",", " ").replace(".", ",")
+    return f"{x:,.2f}".replace(",", " ")
 
 def format_percent(x):
     return f"{x:.2f} %"
 
-# ==================================================
-# DATA CRYPTO TOP 10
-# ==================================================
+# --------------------------------------------------
+# CRYPTO TOP CAPITALISATION
+# --------------------------------------------------
 @st.cache_data(ttl=300)
 def get_top_cryptos():
     url = "https://api.coingecko.com/api/v3/coins/markets"
@@ -44,11 +44,11 @@ def get_top_cryptos():
     r.raise_for_status()
     return r.json()
 
-# ==================================================
-# ACTIONS / INDICES
-# ==================================================
+# --------------------------------------------------
+# ASSETS (NO ACCENTS, NO SPECIAL CHARS)
+# --------------------------------------------------
 ASSETS = {
-    "Actions US": {
+    "US Stocks": {
         "Apple": "AAPL",
         "Microsoft": "MSFT",
         "Nvidia": "NVDA",
@@ -68,39 +68,38 @@ ASSETS = {
     }
 }
 
-# ==================================================
+# --------------------------------------------------
 # MAIN CONTENT
-# ==================================================
+# --------------------------------------------------
 with left_col:
-    st.subheader("Sélection de l’actif")
+    st.subheader("Asset selection")
 
-    market = st.selectbox("Marché", list(ASSETS.keys()))
-    asset_name = st.selectbox("Actif", list(ASSETS[market].keys()))
+    market = st.selectbox("Market", list(ASSETS.keys()))
+    asset_name = st.selectbox("Asset", list(ASSETS[market].keys()))
     ticker = ASSETS[market][asset_name]
 
-    st.subheader(f"{asset_name} – historique 10 ans")
+    st.subheader(asset_name + " - 10 year history")
 
     data = yf.Ticker(ticker).history(period="10y")
 
-    if not data.empty:
+    if not data.empty and len(data) > 22:
         last_price = data["Close"].iloc[-1]
         prev_month = data["Close"].iloc[-22]
         monthly_change = (last_price - prev_month) / prev_month * 100
 
-        col1, col2 = st.columns(2)
-        col1.metric("Prix actuel", format_price(last_price))
-        col2.metric("Variation 1 mois", format_percent(monthly_change))
+        c1, c2 = st.columns(2)
+        c1.metric("Current price", format_price(last_price))
+        c2.metric("Monthly change", format_percent(monthly_change))
 
         st.line_chart(data["Close"])
-
     else:
-        st.warning("Données indisponibles.")
+        st.warning("Not enough data available")
 
-# ==================================================
-# RIGHT COLUMN – TOP CAPITALISATIONS
-# ==================================================
+# --------------------------------------------------
+# RIGHT COLUMN - TOP CRYPTOS
+# --------------------------------------------------
 with right_col:
-    st.subheader("Top capitalisations crypto")
+    st.subheader("Top crypto capitalisation")
 
     cryptos = get_top_cryptos()
 
@@ -108,18 +107,17 @@ with right_col:
         price = c["current_price"]
         change_30d = c.get("price_change_percentage_30d_in_currency", 0)
 
-        signal = "Achat" if change_30d > 0 else "Vente"
+        signal = "Buy" if change_30d >= 0 else "Sell"
 
         st.metric(
             label=c["name"],
             value=format_price(price),
-            delta=f"{format_percent(change_30d)} ({signal})"
+            delta=format_percent(change_30d) + " (" + signal + ")"
         )
 
-# ==================================================
+# --------------------------------------------------
 # FOOTER
-# ==================================================
+# --------------------------------------------------
 now_paris = datetime.now(ZoneInfo("Europe/Paris"))
 st.divider()
-st.caption("Dernière mise à jour : " + now_paris.strftime("%d/%m/%Y %H:%M:%S"))
-``
+st.caption("Last update: " + now_paris.strftime("%Y-%m-%d %H:%M:%S"))
