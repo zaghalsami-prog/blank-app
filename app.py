@@ -1,7 +1,5 @@
 import streamlit as st
-import requests
 import yfinance as yf
-import pandas as pd
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -13,7 +11,7 @@ st.title("Market Intelligence Dashboard")
 st.write("Crypto and stocks - analysis with news intelligence")
 
 # ==================================================
-# SESSION STATE (WATCHLIST)
+# SESSION STATE
 # ==================================================
 if "watchlist" not in st.session_state:
     st.session_state.watchlist = []
@@ -27,10 +25,16 @@ left_col, right_col = st.columns([3, 1])
 # HELPERS
 # ==================================================
 def format_price(x):
-    return f"{x:,.2f}".replace(",", " ")
+    try:
+        return f"{x:,.2f}".replace(",", " ")
+    except Exception:
+        return "-"
 
 def format_percent(x):
-    return f"{x:.2f} %"
+    try:
+        return f"{x:.2f} %"
+    except Exception:
+        return "-"
 
 # ==================================================
 # ASSETS
@@ -51,26 +55,31 @@ ASSETS = {
 }
 
 # ==================================================
-# MAIN TOP CONTENT
+# MAIN CONTENT
 # ==================================================
 with left_col:
+    st.subheader("Asset selection")
+
     market = st.selectbox("Market", list(ASSETS.keys()))
     asset_name = st.selectbox("Asset", list(ASSETS[market].keys()))
     ticker = ASSETS[market][asset_name]
 
-st.markdown("### Or search any stock by ticker")
+    st.markdown("### Or search any stock by ticker")
 
-custom_ticker = st.text_input(
-    "Enter a Yahoo Finance ticker",
-    placeholder="Examples: ASML.AS, NFLX, OR.PA, SAP.DE"
-)
+    custom_ticker = st.text_input(
+        "Enter a Yahoo Finance ticker",
+        placeholder="Examples: ASML.AS, NFLX, OR.PA, SAP.DE"
+    )
 
-if custom_ticker:
-    ticker = custom_ticker.upper()
-``
+    if custom_ticker:
+        ticker = custom_ticker.upper()
+
+    # ------------------------------
+    # PRICE DATA
+    # ------------------------------
     data = yf.Ticker(ticker).history(period="10y")
 
-    if not data.empty:
+    if not data.empty and len(data) > 22:
         last_price = data["Close"].iloc[-1]
         prev_month = data["Close"].iloc[-22]
         monthly_change = (last_price - prev_month) / prev_month * 100
@@ -81,12 +90,14 @@ if custom_ticker:
 
         st.line_chart(data["Close"])
 
-        if st.button("⭐ Add to watchlist"):
+        if st.button("Add to watchlist"):
             if ticker not in st.session_state.watchlist:
                 st.session_state.watchlist.append(ticker)
+    else:
+        st.warning("Not enough historical data available.")
 
 # ==================================================
-# RIGHT COLUMN (SIMPLE FOR NOW)
+# RIGHT COLUMN - WATCHLIST
 # ==================================================
 with right_col:
     st.subheader("Watchlist")
@@ -97,27 +108,27 @@ with right_col:
         st.caption("No assets saved yet.")
 
 # ==================================================
-# 🔽 NEWS & INTELLIGENCE SECTION (BOTTOM)
+# NEWS & INTELLIGENCE (BOTTOM)
 # ==================================================
 st.divider()
 st.header("News & Intelligence")
 
 tabs = st.tabs([
-    "🧠 News summary",
-    "🔍 News filter",
-    "📊 News vs price",
-    "⭐ Watchlist",
-    "🔔 Alerts"
+    "News summary",
+    "News filter",
+    "News vs price",
+    "Watchlist details",
+    "Alerts"
 ])
 
 # ==================================================
-# TAB 1 — NEWS SUMMARY (SENTIMENT HEURISTIC)
+# TAB 1 - NEWS SUMMARY
 # ==================================================
 with tabs[0]:
     st.subheader("AI-like news summary (heuristic)")
 
     stock = yf.Ticker(ticker)
-    news = stock.news[:10]
+    news = stock.news[:10] if stock.news else []
 
     positive_words = ["beat", "growth", "strong", "profit", "upgrade"]
     negative_words = ["miss", "weak", "loss", "downgrade", "risk"]
@@ -130,13 +141,18 @@ with tabs[0]:
         if any(w in title for w in negative_words):
             score -= 1
 
-    sentiment = "Positive" if score > 0 else "Negative" if score < 0 else "Neutral"
+    if score > 0:
+        sentiment = "Positive"
+    elif score < 0:
+        sentiment = "Negative"
+    else:
+        sentiment = "Neutral"
 
     st.metric("Overall sentiment", sentiment)
     st.write("Based on keyword analysis of recent headlines.")
 
 # ==================================================
-# TAB 2 — NEWS FILTER
+# TAB 2 - NEWS FILTER
 # ==================================================
 with tabs[1]:
     st.subheader("Filtered news")
@@ -148,28 +164,28 @@ with tabs[1]:
 
     for n in news:
         title = n.get("title", "")
+        title_l = title.lower()
+
         if category == "All":
             st.write("-", title)
-        elif category == "Earnings" and "earn" in title.lower():
+        elif category == "Earnings" and "earn" in title_l:
             st.write("-", title)
-        elif category == "Rumors" and "rumor" in title.lower():
+        elif category == "Rumors" and "rumor" in title_l:
             st.write("-", title)
-        elif category == "Macro" and "fed" in title.lower():
+        elif category == "Macro" and "fed" in title_l:
             st.write("-", title)
 
 # ==================================================
-# TAB 3 — IMPACT NEWS VS PRICE
+# TAB 3 - NEWS VS PRICE
 # ==================================================
 with tabs[2]:
     st.subheader("News impact vs price")
-
     recent = data.tail(60)
     st.line_chart(recent["Close"])
-
     st.caption("Visual comparison between recent news flow and price trend.")
 
 # ==================================================
-# TAB 4 — WATCHLIST DETAILS
+# TAB 4 - WATCHLIST DETAILS
 # ==================================================
 with tabs[3]:
     st.subheader("Your watchlist")
@@ -180,26 +196,30 @@ with tabs[3]:
         for w in st.session_state.watchlist:
             hist = yf.Ticker(w).history(period="1y")
             if not hist.empty:
-                change = (hist["Close"].iloc[-1] - hist["Close"].iloc[0]) / hist["Close"].iloc[0] * 100
+                change = (
+                    hist["Close"].iloc[-1] - hist["Close"].iloc[0]
+                ) / hist["Close"].iloc[0] * 100
                 st.metric(w, format_percent(change))
 
 # ==================================================
-# TAB 5 — ALERTS (V1)
+# TAB 5 - ALERTS
 # ==================================================
 with tabs[4]:
-    st.subheader("Alerts (V1)")
+    st.subheader("Alerts")
 
     st.write(
         "Alerts are triggered when:\n"
         "- strong negative news keywords appear\n"
-        "- or monthly price change exceeds +/-10%\n"
+        "- or monthly price change exceeds +/-10%"
     )
 
-    if abs(monthly_change) > 10:
+    if not data.empty and abs(monthly_change) > 10:
         st.warning("Price alert: strong monthly movement detected.")
 
 # ==================================================
 # FOOTER
 # ==================================================
 now_paris = datetime.now(ZoneInfo("Europe/Paris"))
+st.divider()
 st.caption("Last update: " + now_paris.strftime("%Y-%m-%d %H:%M:%S"))
+``
