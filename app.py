@@ -36,6 +36,22 @@ def format_percent(x):
     except Exception:
         return "-"
 
+@st.cache_data(ttl=300)
+def get_history(ticker):
+    try:
+        data = yf.Ticker(ticker).history(period="10y")
+        return data
+    except Exception:
+        return None
+
+@st.cache_data(ttl=300)
+def get_news(ticker):
+    try:
+        stock = yf.Ticker(ticker)
+        return stock.news[:10] if stock.news else []
+    except Exception:
+        return []
+
 # ==================================================
 # ASSETS
 # ==================================================
@@ -77,9 +93,14 @@ with left_col:
     # ------------------------------
     # PRICE DATA
     # ------------------------------
-    data = yf.Ticker(ticker).history(period="10y")
+    data = get_history(ticker)
 
-    if not data.empty and len(data) > 22:
+    if data is None:
+        st.error("Données indisponibles (rate limit Yahoo Finance). Réessaie dans 1 minute.")
+        st.stop()
+    elif data.empty or len(data) <= 22:
+        st.warning("Not enough historical data available.")
+    else:
         last_price = data["Close"].iloc[-1]
         prev_month = data["Close"].iloc[-22]
         monthly_change = (last_price - prev_month) / prev_month * 100
@@ -93,8 +114,6 @@ with left_col:
         if st.button("Add to watchlist"):
             if ticker not in st.session_state.watchlist:
                 st.session_state.watchlist.append(ticker)
-    else:
-        st.warning("Not enough historical data available.")
 
 # ==================================================
 # RIGHT COLUMN
@@ -121,14 +140,14 @@ tabs = st.tabs([
     "Alerts"
 ])
 
+# Récupération des news via cache
+news = get_news(ticker)
+
 # ==================================================
 # TAB 1 - NEWS SUMMARY
 # ==================================================
 with tabs[0]:
     st.subheader("AI-like news summary (heuristic)")
-
-    stock = yf.Ticker(ticker)
-    news = stock.news[:10] if stock.news else []
 
     positive_words = ["beat", "growth", "strong", "profit", "upgrade"]
     negative_words = ["miss", "weak", "loss", "downgrade", "risk"]
@@ -180,8 +199,9 @@ with tabs[1]:
 # ==================================================
 with tabs[2]:
     st.subheader("News impact vs price")
-    recent = data.tail(60)
-    st.line_chart(recent["Close"])
+    if data is not None and not data.empty:
+        recent = data.tail(60)
+        st.line_chart(recent["Close"])
     st.caption("Visual comparison between recent news flow and price trend.")
 
 # ==================================================
@@ -194,8 +214,8 @@ with tabs[3]:
         st.info("No assets in watchlist.")
     else:
         for w in st.session_state.watchlist:
-            hist = yf.Ticker(w).history(period="1y")
-            if not hist.empty:
+            hist = get_history(w)
+            if hist is not None and not hist.empty:
                 change = (
                     hist["Close"].iloc[-1] - hist["Close"].iloc[0]
                 ) / hist["Close"].iloc[0] * 100
@@ -213,8 +233,12 @@ with tabs[4]:
         "- or monthly price change exceeds +/-10%"
     )
 
-    if not data.empty and abs(monthly_change) > 10:
-        st.warning("Price alert: strong monthly movement detected.")
+    if data is not None and not data.empty and len(data) > 22:
+        last_price = data["Close"].iloc[-1]
+        prev_month = data["Close"].iloc[-22]
+        monthly_change = (last_price - prev_month) / prev_month * 100
+        if abs(monthly_change) > 10:
+            st.warning("Price alert: strong monthly movement detected.")
 
 # ==================================================
 # FOOTER
