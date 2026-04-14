@@ -3,9 +3,9 @@ import requests
 import yfinance as yf
 from datetime import datetime
 
-# -----------------------------
-# CONFIG GÉNÉRALE
-# -----------------------------
+# =============================
+# CONFIGURATION
+# =============================
 st.set_page_config(
     page_title="Crypto & Macro Intelligence",
     layout="wide"
@@ -14,9 +14,9 @@ st.set_page_config(
 st.title("Crypto & Macro Intelligence")
 st.caption("Dashboard Python – données quasi temps réel")
 
-# -----------------------------
-# FONCTION CRYPTO (CoinGecko)
-# -----------------------------
+# =============================
+# CRYPTO – COINGECKO
+# =============================
 @st.cache_data(ttl=60)
 def get_crypto_prices():
     url = "https://api.coingecko.com/api/v3/simple/price"
@@ -25,13 +25,10 @@ def get_crypto_prices():
         "vs_currencies": "usd",
         "include_24hr_change": "true"
     }
-    r = requests.get(url, params=params, timeout=10)
-    r.raise_for_status()
-    return r.json()
+    response = requests.get(url, params=params, timeout=10)
+    response.raise_for_status()
+    return response.json()
 
-# -----------------------------
-# SECTION CRYPTO
-# -----------------------------
 st.subheader("🪙 Cryptomonnaies")
 
 try:
@@ -46,11 +43,10 @@ try:
         )
 except Exception as e:
     st.error("Erreur lors du chargement des données crypto.")
-    st.exception(e)
 
-# -----------------------------
-# SECTION ACTIONS
-# -----------------------------
+# =============================
+# ACTIONS – YAHOO FINANCE
+# =============================
 st.subheader("📈 Actions & Indices")
 
 tickers = ["AAPL", "MSFT", "NVDA", "^GSPC"]
@@ -71,14 +67,14 @@ for col, ticker in zip(cols, tickers):
                 delta=f"{delta:.2f}%"
             )
         else:
-            col.write(f"{ticker} : pas assez de données")
+            col.write("Données insuffisantes")
 
-    except Exception as e:
-        col.error(f"Erreur pour {ticker}")
+    except Exception:
+        col.error("Erreur de chargement")
 
-# -----------------------------
+# =============================
 # FOOTER
-# -----------------------------
+# =============================
 st.divider()
 st.caption(f"Dernière mise à jour : {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
 ``
