@@ -36,6 +36,3 @@ for col, ticker in zip(cols, tickers):
         prev = hist["Close"][-2]
         delta = (price - prev) / prev * 100
         col.metric(ticker, f"${price:.2f}", f"{delta:.2f}%")
-
-st.caption(f"Dernière mise à jour : {datetime.now().strftime('%H:%M:%S')}")
-``
