@@ -55,7 +55,7 @@ ASSETS = {
 }
 
 # ==================================================
-# MAIN CONTENT
+# MAIN CONTENT (TOP)
 # ==================================================
 with left_col:
     st.subheader("Asset selection")
@@ -97,7 +97,7 @@ with left_col:
         st.warning("Not enough historical data available.")
 
 # ==================================================
-# RIGHT COLUMN - WATCHLIST
+# RIGHT COLUMN
 # ==================================================
 with right_col:
     st.subheader("Watchlist")
