@@ -3,45 +3,56 @@ import yfinance as yf
 import requests
 from datetime import datetime
 
-st.divider()
-st.header("🔍 Search & Market News")
+# ===============================
+# CONFIG
+# ===============================
+st.set_page_config(page_title="Market Intelligence", layout="wide")
 
-# ---------------------------------------
-# 1. Asset type selection
-# ---------------------------------------
+st.title("Market Intelligence Dashboard")
+st.write("Search assets and display related market news")
+
+# ===============================
+# SECTION RECHERCHE
+# ===============================
+st.divider()
+st.header("Search Asset & Market News")
+
 asset_type = st.selectbox(
     "Asset type",
     ["Stock", "Crypto"]
 )
 
 query = st.text_input(
-    "Search an asset",
-    placeholder="Examples: AAPL, TSLA, ASML.AS, BTC, ETH"
-).upper()
+    "Search asset",
+    placeholder="Examples: AAPL, TSLA, BTC, ETH"
+)
 
-# ---------------------------------------
-# 2. STOCK NEWS - Yahoo Finance
-# ---------------------------------------
+if query:
+    query = query.upper()
+
+# ===============================
+# NEWS - ACTIONS (Yahoo Finance)
+# ===============================
 if asset_type == "Stock" and query:
-    st.subheader(f"📰 Latest news for {query}")
+
+    st.subheader(f"Latest news for {query}")
 
     try:
         stock = yf.Ticker(query)
-        news = stock.news
+        news = stock.news if stock.news else []
 
         if not news:
-            st.info("No recent news found.")
+            st.info("No news found for this stock.")
         else:
             positive_words = ["beat", "growth", "strong", "upgrade", "profit"]
             negative_words = ["miss", "weak", "loss", "downgrade", "risk"]
-
             score = 0
 
-            for n in news[:5]:
-                title = n.get("title", "")
-                publisher = n.get("publisher", "")
-                link = n.get("link", "")
-                ts = n.get("providerPublishTime")
+            for item in news[:5]:
+                title = item.get("title", "")
+                publisher = item.get("publisher", "")
+                link = item.get("link", "")
+                ts = item.get("providerPublishTime")
 
                 if any(w in title.lower() for w in positive_words):
                     score += 1
@@ -59,58 +70,64 @@ if asset_type == "Stock" and query:
                     f"  {link}"
                 )
 
-            sentiment = (
-                "Positive" if score > 0
-                else "Negative" if score < 0
-                else "Neutral"
-            )
+            if score > 0:
+                sentiment = "Positive"
+            elif score < 0:
+                sentiment = "Negative"
+            else:
+                sentiment = "Neutral"
 
             st.metric("News sentiment", sentiment)
 
-    except Exception:
-        st.warning("Unable to load stock news.")
+    except Exception as e:
+        st.error("Error loading stock news.")
 
-# ---------------------------------------
-# 3. CRYPTO NEWS - CryptoPanic
-# ---------------------------------------
+# ===============================
+# NEWS - CRYPTOS (CryptoPanic)
+# ===============================
 if asset_type == "Crypto" and query:
-    st.subheader(f"📰 Latest crypto news for {query}")
 
-    try:
-        url = "https://cryptopanic.com/api/v1/posts/"
-        params = {
-            "auth_token": st.secrets["CRYPTOPANIC_API_KEY"],
-            "currencies": query,
-            "kind": "news"
-        }
+    st.subheader(f"Latest crypto news for {query}")
 
-        r = requests.get(url, params=params, timeout=10)
-        news = r.json().get("results", [])
+    if "CRYPTOPANIC_API_KEY" not in st.secrets:
+        st.info("Crypto news disabled (no API key in Secrets).")
+    else:
+        try:
+            url = "https://cryptopanic.com/api/v1/posts/"
+            params = {
+                "auth_token": st.secrets["CRYPTOPANIC_API_KEY"],
+                "currencies": query,
+                "kind": "news"
+            }
 
-        if not news:
-            st.info("No recent crypto news found.")
-        else:
-            score = 0
+            response = requests.get(url, params=params, timeout=10)
+            data = response.json()
+            news = data.get("results", [])
 
-            for n in news[:5]:
-                title = n.get("title", "")
-                link = n.get("url", "")
+            if not news:
+                st.info("No crypto news found.")
+            else:
+                score = 0
 
-                if n.get("positive"):
-                    score += 1
-                if n.get("negative"):
-                    score -= 1
+                for item in news[:5]:
+                    title = item.get("title", "")
+                    link = item.get("url", "")
 
-                st.markdown(f"- **{title}**  \n  {link}")
+                    if item.get("positive"):
+                        score += 1
+                    if item.get("negative"):
+                        score -= 1
 
-            sentiment = (
-                "Positive" if score > 0
-                else "Negative" if score < 0
-                else "Neutral"
-            )
+                    st.markdown(f"- **{title}**  \n  {link}")
 
-            st.metric("News sentiment", sentiment)
+                if score > 0:
+                    sentiment = "Positive"
+                elif score < 0:
+                    sentiment = "Negative"
+                else:
+                    sentiment = "Neutral"
 
-    except Exception:
-        st.warning("Unable to load crypto news.")
-``
+                st.metric("News sentiment", sentiment)
+
+        except Exception as e:
+            st.error("Error loading crypto news.")
